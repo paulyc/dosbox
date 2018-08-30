@@ -20,12 +20,10 @@ keyboard.h \
 logging.h \
 mapper.h \
 mem.h \
-midi.h \
 mixer.h \
 modules.h \
 mouse.h \
 paging.h \
-pci_bus.h \
 pic.h \
 programs.h \
 render.h \

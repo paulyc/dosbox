@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2010  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* $Id: decoder.h,v 1.59 2009-10-18 17:52:09 c2woody Exp $ */
 
 #define X86_DYNFPU_DH_ENABLED
 #define X86_INLINED_MEMACCESS
@@ -2677,7 +2678,7 @@ restart_prefix:
 			goto illegalopcode;
 		}
 	}
-	// link to next block because the maximum number of opcodes has been reached
+	// link to next block because the maximal number of opcodes has been reached
 	dyn_set_eip_end();
 	dyn_reduce_cycles();
 	dyn_save_critical_regs();

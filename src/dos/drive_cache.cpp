@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2010  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* $Id: drive_cache.cpp,v 1.59 2009-04-16 12:28:30 qbix79 Exp $ */
 
 #include "drives.h"
 #include "dos_inc.h"
@@ -66,7 +67,7 @@ DOS_Drive_Cache::DOS_Drive_Cache(void) {
 	srchNr			= 0;
 	label[0]		= 0;
 	nextFreeFindFirst	= 0;
-	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { dirSearch[i] = 0; dirFindFirst[i] = 0; };
+	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { dirSearch[i] = 0; free[i] = true; dirFindFirst[i] = 0; };
 	SetDirSort(DIRALPHABETICAL);
 	updatelabel = true;
 }
@@ -77,7 +78,7 @@ DOS_Drive_Cache::DOS_Drive_Cache(const char* path) {
 	srchNr			= 0;
 	label[0]		= 0;
 	nextFreeFindFirst	= 0;
-	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { dirSearch[i] = 0; dirFindFirst[i] = 0; };
+	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { dirSearch[i] = 0; free[i] = true; dirFindFirst[i] = 0; };
 	SetDirSort(DIRALPHABETICAL);
 	SetBaseDir(path);
 	updatelabel = true;
@@ -85,11 +86,11 @@ DOS_Drive_Cache::DOS_Drive_Cache(const char* path) {
 
 DOS_Drive_Cache::~DOS_Drive_Cache(void) {
 	Clear();
-	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { DeleteFileInfo(dirFindFirst[i]); dirFindFirst[i]=0; };
+	for (Bit32u i=0; i<MAX_OPENDIRS; i++) { delete dirFindFirst[i]; dirFindFirst[i]=0; };
 }
 
 void DOS_Drive_Cache::Clear(void) {
-	DeleteFileInfo(dirBase); dirBase = 0;
+	delete dirBase; dirBase = 0;
 	nextFreeFindFirst	= 0;
 	for (Bit32u i=0; i<MAX_OPENDIRS; i++) dirSearch[i] = 0;
 }
@@ -100,6 +101,7 @@ void DOS_Drive_Cache::EmptyCache(void) {
 	dirBase		= new CFileInfo;
 	save_dir	= 0;
 	srchNr		= 0;
+	for (Bit32u i=0; i<MAX_OPENDIRS; i++) free[i] = true; 
 	SetBaseDir(basePath);
 }
 
@@ -115,16 +117,8 @@ void DOS_Drive_Cache::SetLabel(const char* vname,bool cdrom,bool allowupdate) {
 }
 
 Bit16u DOS_Drive_Cache::GetFreeID(CFileInfo* dir) {
-	if (dir->id != MAX_OPENDIRS)
-		return dir->id;
-	for (Bit16u i=0; i<MAX_OPENDIRS; i++) {
-		if (!dirSearch[i]) {
-			dir->id = i;
-			return i;
-		}
-	}
+	for (Bit16u i=0; i<MAX_OPENDIRS; i++) if (free[i] || (dir==dirSearch[i])) return i;
 	LOG(LOG_FILES,LOG_NORMAL)("DIRCACHE: Too many open directories!");
-	dir->id=0;
 	return 0;
 }
 
@@ -268,7 +262,7 @@ void DOS_Drive_Cache::CacheOut(const char* path, bool ignoreLastDir) {
 	// delete file objects...
 	for(Bit32u i=0; i<dir->fileList.size(); i++) {
 		if (dirSearch[srchNr]==dir->fileList[i]) dirSearch[srchNr] = 0;
-		DeleteFileInfo(dir->fileList[i]); dir->fileList[i] = 0;
+		delete dir->fileList[i]; dir->fileList[i] = 0;
 	}
 	// clear lists
 	dir->fileList.clear();
@@ -455,13 +449,13 @@ Bits DOS_Drive_Cache::GetLongName(CFileInfo* curDir, char* shortName) {
 	// else it's most likely a Wine style short name ABCD~###, # = not dot  (length at least 8) 
 	// The above test is rather strict as the following loop can be really slow if filelist_size is large.
 	char buff[CROSS_LEN];
-	for (Bitu i = 0; i < filelist_size; i++) {
+	for (Bits i = 0; i < filelist_size; i++) {
 		res = wine_hash_short_file_name(curDir->fileList[i]->orgname,buff);
 		buff[res] = 0;
 		if (!strcmp(shortName,buff)) {	
 			// Found
 			strcpy(shortName,curDir->fileList[i]->orgname);
-			return (Bits)i;
+			return i;
 		}
 	}
 #endif
@@ -599,10 +593,7 @@ DOS_Drive_Cache::CFileInfo* DOS_Drive_Cache::FindDirInfo(const char* path, char*
 			strcpy(buffer,dirPath);
 			ReadDir(id,result);
 			strcpy(dirPath,buffer);
-			if (dirSearch[id]) {
-				dirSearch[id]->id = MAX_OPENDIRS;
-				dirSearch[id] = 0;
-			}
+			free[id] = true;
 		};
 	};
 
@@ -632,10 +623,7 @@ DOS_Drive_Cache::CFileInfo* DOS_Drive_Cache::FindDirInfo(const char* path, char*
 					strcpy(buffer,dirPath);
 					ReadDir(id,result);
 					strcpy(dirPath,buffer);
-					if (dirSearch[id]) {
-						dirSearch[id]->id = MAX_OPENDIRS;
-						dirSearch[id] = 0;
-					}
+					free[id] = true;
 				};
 			}
 		};
@@ -679,11 +667,8 @@ bool DOS_Drive_Cache::OpenDir(CFileInfo* dir, const char* expand, Bit16u& id) {
 			// Reset it..
 			close_directory(dirp);
 			strcpy(dirPath,expandcopy);
+			free[id] = false;
 			return true;
-		}
-		if (dirSearch[id]) {
-			dirSearch[id]->id = MAX_OPENDIRS;
-			dirSearch[id] = 0;
 		}
 	};
 	return false;
@@ -743,10 +728,7 @@ bool DOS_Drive_Cache::ReadDir(Bit16u id, char* &result) {
 		// Try to open directory
 		dir_information* dirp = open_directory(dirPath);
 		if (!dirp) {
-			if (dirSearch[id]) {
-				dirSearch[id]->id = MAX_OPENDIRS;
-				dirSearch[id] = 0;
-			}
+			free[id] = true;
 			return false;
 		}
 		// Read complete directory
@@ -773,10 +755,7 @@ bool DOS_Drive_Cache::ReadDir(Bit16u id, char* &result) {
 		};*/
 	};
 	if (SetResult(dirSearch[id], result, dirSearch[id]->nextEntry)) return true;
-	if (dirSearch[id]) {
-		dirSearch[id]->id = MAX_OPENDIRS;
-		dirSearch[id] = 0;
-	}
+	free[id] = true;
 	return false;
 }
 
@@ -820,7 +799,7 @@ bool DOS_Drive_Cache::FindFirst(char* path, Bit16u& id) {
 		this->nextFreeFindFirst = 1; //the next free one after this search
 		for(Bitu n=0; n<MAX_OPENDIRS;n++) {	
 	     	// Clear and reuse slot
-			DeleteFileInfo(dirFindFirst[n]);
+			delete dirFindFirst[n];
 			dirFindFirst[n]=0;
 		}
 	   
@@ -855,25 +834,8 @@ bool DOS_Drive_Cache::FindNext(Bit16u id, char* &result) {
 	}
 	if (!SetResult(dirFindFirst[id], result, dirFindFirst[id]->nextEntry)) {
 		// free slot
-		DeleteFileInfo(dirFindFirst[id]); dirFindFirst[id] = 0;
+		delete dirFindFirst[id]; dirFindFirst[id] = 0;
 		return false;
 	}
 	return true;
-}
-
-void DOS_Drive_Cache::ClearFileInfo(CFileInfo *dir) {
-	for(Bit32u i=0; i<dir->fileList.size(); i++) {
-		if (CFileInfo *info = dir->fileList[i])
-			ClearFileInfo(info);
-	}
-	if (dir->id != MAX_OPENDIRS) {
-		dirSearch[dir->id] = 0;
-		dir->id = MAX_OPENDIRS;
-	}
-}
-
-void DOS_Drive_Cache::DeleteFileInfo(CFileInfo *dir) {
-	if (dir)
-		ClearFileInfo(dir);
-	delete dir;
 }

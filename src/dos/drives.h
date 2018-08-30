@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2018  The DOSBox Team
+ *  Copyright (C) 2002-2010  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* $Id: drives.h,v 1.41 2009-05-27 09:15:41 qbix79 Exp $ */
 
 #ifndef _DRIVES_H__
 #define _DRIVES_H__
@@ -24,6 +25,7 @@
 #include <sys/types.h>
 #include "dos_system.h"
 #include "shell.h" /* for DOS_Shell */
+#include "bios_disk.h"  /* for fatDrive */
 
 bool WildFileCmp(const char * file, const char * wild);
 void Set_Label(char const * const input, char * const output, bool cdrom);
@@ -35,7 +37,6 @@ public:
 	static int UnmountDrive(int drive);
 //	static void CycleDrive(bool pressed);
 //	static void CycleDisk(bool pressed);
-	static void CycleDisks(int drive, bool notify);
 	static void CycleAllDisks(void);
 	static void Init(Section* sec);
 	
@@ -142,8 +143,7 @@ struct partTable {
 #ifdef _MSC_VER
 #pragma pack ()
 #endif
-//Forward
-class imageDisk;
+
 class fatDrive : public DOS_Drive {
 public:
 	fatDrive(const char * sysFilename, Bit32u bytesector, Bit32u cylsector, Bit32u headscyl, Bit32u cylinders, Bit32u startSector);
@@ -165,17 +165,14 @@ public:
 	virtual bool isRemovable(void);
 	virtual Bits UnMount(void);
 public:
-	Bit8u readSector(Bit32u sectnum, void * data);
-	Bit8u writeSector(Bit32u sectnum, void * data);
 	Bit32u getAbsoluteSectFromBytePos(Bit32u startClustNum, Bit32u bytePos);
 	Bit32u getSectorSize(void);
-	Bit32u getClusterSize(void);
 	Bit32u getAbsoluteSectFromChain(Bit32u startClustNum, Bit32u logicalSector);
 	bool allocateCluster(Bit32u useCluster, Bit32u prevCluster);
 	Bit32u appendCluster(Bit32u startCluster);
-	void deleteClustChain(Bit32u startCluster, Bit32u bytePos);
+	void deleteClustChain(Bit32u startCluster);
 	Bit32u getFirstFreeClust(void);
-	bool directoryBrowse(Bit32u dirClustNumber, direntry *useEntry, Bit32s entNum, Bit32s start=0);
+	bool directoryBrowse(Bit32u dirClustNumber, direntry *useEntry, Bit32s entNum);
 	bool directoryChange(Bit32u dirClustNumber, direntry *useEntry, Bit32s entNum);
 	imageDisk *loadedDisk;
 	bool created_successfully;
@@ -203,7 +200,6 @@ private:
 	} allocation;
 	
 	bootstrap bootbuffer;
-	bool absolute;
 	Bit8u fattype;
 	Bit32u CountOfClusters;
 	Bit32u partSectOff;
@@ -212,9 +208,6 @@ private:
 
 	Bit32u cwdDirCluster;
 	Bit32u dirPosition; /* Position in directory search */
-
-	Bit8u fatSectBuffer[1024];
-	Bit32u curFatSect;
 };
 
 
@@ -305,13 +298,11 @@ struct isoDirEntry {
 #endif
 
 #define ISO_FRAMESIZE		2048
-#define ISO_ASSOCIATED		4
 #define ISO_DIRECTORY		2
 #define ISO_HIDDEN		1
 #define ISO_MAX_FILENAME_LENGTH 37
 #define ISO_MAXPATHNAME		256
 #define ISO_FIRST_VD		16
-#define IS_ASSOC(fileFlags)	(fileFlags & ISO_ASSOCIATED)
 #define IS_DIR(fileFlags)	(fileFlags & ISO_DIRECTORY)
 #define IS_HIDDEN(fileFlags)	(fileFlags & ISO_HIDDEN)
 #define ISO_MAX_HASH_TABLE_SIZE 	100
@@ -368,7 +359,6 @@ private:
 		Bit8u data[ISO_FRAMESIZE];
 	} sectorHashEntries[ISO_MAX_HASH_TABLE_SIZE];
 
-	bool iso;
 	bool dataCD;
 	isoDirEntry rootEntry;
 	Bit8u mediaid;
@@ -401,7 +391,6 @@ public:
 	bool isRemote(void);
 	virtual bool isRemovable(void);
 	virtual Bits UnMount(void);
-	virtual char const* GetLabel(void);
 private:
 	VFILE_Block * search_file;
 };

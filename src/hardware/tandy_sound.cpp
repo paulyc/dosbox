@@ -280,6 +280,9 @@ public:
 		if (machine == MCH_PCJR) activeDevice = &device_sn76496;
 		else activeDevice = &device_ncr8496;
 
+		//0.74 has the ncr8496 for all machines.
+		activeDevice = &device_ncr8496;
+
 		real_writeb(0x40,0xd4,0x00);
 		if (IS_TANDY_ARCH) {
 			/* enable tandy sound if tandy=true/auto */
