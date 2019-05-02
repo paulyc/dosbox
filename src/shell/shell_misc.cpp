@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2010  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,11 +11,12 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* $Id: shell_misc.cpp,v 1.54 2009-05-27 09:15:42 qbix79 Exp $ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -56,7 +57,7 @@ void DOS_Shell::InputCommand(char * line) {
 			Bit16u dummy;
 			DOS_CloseFile(input_handle);
 			DOS_OpenFile("con",2,&dummy);
-			LOG(LOG_MISC,LOG_ERROR)("Reopening the input handle. This is a bug!");
+			LOG(LOG_MISC,LOG_ERROR)("Reopening the input handle.This is a bug!");
 		}
 		if (!n) {
 			size=0;			//Kill the while loop
@@ -174,24 +175,6 @@ void DOS_Shell::InputCommand(char * line) {
 						size++;
 					}
 					break;
-				case 15:		/* Shift-Tab */
-					if (l_completion.size()) {
-						if (it_completion == l_completion.begin()) it_completion = l_completion.end (); 
-						it_completion--;
-		
-						if (it_completion->length()) {
-							for (;str_index > completion_index; str_index--) {
-								// removes all characters
-								outc(8); outc(' '); outc(8);
-							}
-
-							strcpy(&line[completion_index], it_completion->c_str());
-							len = (Bit16u)it_completion->length();
-							str_len = str_index = completion_index + len;
-							size = CMD_MAXLINE - str_index - 2;
-							DOS_WriteFile(STDOUT, (Bit8u *)it_completion->c_str(), &len);
-						}
-					}
 				default:
 					break;
 				}
@@ -223,7 +206,6 @@ void DOS_Shell::InputCommand(char * line) {
 			/* Don't care */
 			break;
 		case 0x0d:				/* Return */
-			outc('\r');
 			outc('\n');
 			size=0;			//Kill the while loop
 			break;
@@ -253,21 +235,17 @@ void DOS_Shell::InputCommand(char * line) {
 					if ((path = strrchr(line+completion_index,'/'))) completion_index = (Bit16u)(path-line+1);
 
 					// build the completion list
-					char mask[DOS_PATHLENGTH] = {0};
-					if (strlen(p_completion_start) + 3 >= DOS_PATHLENGTH) {
-						//Beep;
-						break;
-					}
+					char mask[DOS_PATHLENGTH];
 					if (p_completion_start) {
-						safe_strncpy(mask, p_completion_start,DOS_PATHLENGTH);
+						strcpy(mask, p_completion_start);
 						char* dot_pos=strrchr(mask,'.');
 						char* bs_pos=strrchr(mask,'\\');
 						char* fs_pos=strrchr(mask,'/');
 						char* cl_pos=strrchr(mask,':');
 						// not perfect when line already contains wildcards, but works
 						if ((dot_pos-bs_pos>0) && (dot_pos-fs_pos>0) && (dot_pos-cl_pos>0))
-							strncat(mask, "*",DOS_PATHLENGTH - 1);
-						else strncat(mask, "*.*",DOS_PATHLENGTH - 1);
+							strcat(mask, "*");
+						else strcat(mask, "*.*");
 					} else {
 						strcpy(mask, "*.*");
 					}
@@ -304,7 +282,7 @@ void DOS_Shell::InputCommand(char * line) {
 						}
 						res=DOS_FindNext();
 					}
-					/* Add executable list to front of completion list. */
+					/* Add excutable list to front of completion list. */
 					std::copy(executable.begin(),executable.end(),std::front_inserter(l_completion));
 					it_completion = l_completion.begin();
 					dos.dta(save_dta);
@@ -327,7 +305,6 @@ void DOS_Shell::InputCommand(char * line) {
 		case 0x1b:   /* ESC */
 			//write a backslash and return to the next line
 			outc('\\');
-			outc('\r');
 			outc('\n');
 			*line = 0;      // reset the line.
 			if (l_completion.size()) l_completion.clear(); //reset the completion list.
@@ -479,51 +456,17 @@ bool DOS_Shell::Execute(char * name,char * args) {
 		/* Fill the command line */
 		CommandTail cmdtail;
 		cmdtail.count = 0;
-		memset(&cmdtail.buffer,0,127); //Else some part of the string is unitialized (valgrind)
+		memset(&cmdtail.buffer,0,126); //Else some part of the string is unitialized (valgrind)
 		if (strlen(line)>126) line[126]=0;
 		cmdtail.count=(Bit8u)strlen(line);
 		memcpy(cmdtail.buffer,line,strlen(line));
 		cmdtail.buffer[strlen(line)]=0xd;
 		/* Copy command line in stack block too */
 		MEM_BlockWrite(SegPhys(ss)+reg_sp+0x100,&cmdtail,128);
-
-		
-		/* Split input line up into parameters, using a few special rules, most notable the one for /AAA => A\0AA
-		 * Qbix: It is extremly messy, but this was the only way I could get things like /:aa and :/aa to work correctly */
-		
-		//Prepare string first
-		char parseline[258] = { 0 };
-		for(char *pl = line,*q = parseline; *pl ;pl++,q++) {
-			if (*pl == '=' || *pl == ';' || *pl ==',' || *pl == '\t' || *pl == ' ') *q = 0; else *q = *pl; //Replace command seperators with 0.
-		} //No end of string \0 needed as parseline is larger than line
-
-		for(char* p = parseline; (p-parseline) < 250 ;p++) { //Stay relaxed within boundaries as we have plenty of room
-			if (*p == '/') { //Transform /Hello into H\0ello
-				*p = 0;
-				p++;
-				while ( *p == 0 && (p-parseline) < 250) p++; //Skip empty fields
-				if ((p-parseline) < 250) { //Found something. Lets get the first letter and break it up
-					p++;
-					memmove(static_cast<void*>(p + 1),static_cast<void*>(p),(250-(p-parseline)));
-					if ((p-parseline) < 250) *p = 0;
-				}
-			}
-		}
-		parseline[255] = parseline[256] = parseline[257] = 0; //Just to be safe.
-
 		/* Parse FCB (first two parameters) and put them into the current DOS_PSP */
 		Bit8u add;
-		Bit16u skip = 0;
-		//find first argument, we end up at parseline[256] if there is only one argument (similar for the second), which exists and is 0.
-		while(skip < 256 && parseline[skip] == 0) skip++;
-		FCB_Parsename(dos.psp(),0x5C,0x01,parseline + skip,&add);
-		skip += add;
-		
-		//Move to next argument if it exists
-		while(parseline[skip] != 0) skip++;  //This is safe as there is always a 0 in parseline at the end.
-		while(skip < 256 && parseline[skip] == 0) skip++; //Which is higher than 256
-		FCB_Parsename(dos.psp(),0x6C,0x01,parseline + skip,&add); 
-
+		FCB_Parsename(dos.psp(),0x5C,0x00,cmdtail.buffer,&add);
+		FCB_Parsename(dos.psp(),0x6C,0x00,&cmdtail.buffer[add],&add);
 		block.exec.fcb1=RealMake(dos.psp(),0x5C);
 		block.exec.fcb2=RealMake(dos.psp(),0x6C);
 		/* Set the command line in the block and save it */
@@ -590,13 +533,13 @@ char * DOS_Shell::Which(char * name) {
 	if (!GetEnvStr("PATH",temp)) return 0;
 	const char * pathenv=temp.c_str();
 	if (!pathenv) return 0;
-	pathenv = strchr(pathenv,'=');
+	pathenv=strchr(pathenv,'=');
 	if (!pathenv) return 0;
 	pathenv++;
 	Bitu i_path = 0;
 	while (*pathenv) {
 		/* remove ; and ;; at the beginning. (and from the second entry etc) */
-		while(*pathenv == ';')
+		while(*pathenv && (*pathenv ==';'))
 			pathenv++;
 
 		/* get next entry */
@@ -606,7 +549,7 @@ char * DOS_Shell::Which(char * name) {
 
 		if(i_path == DOS_PATHLENGTH) {
 			/* If max size. move till next ; and terminate path */
-			while(*pathenv && (*pathenv != ';')) 
+			while(*pathenv != ';') 
 				pathenv++;
 			path[DOS_PATHLENGTH - 1] = 0;
 		} else path[i_path] = 0;

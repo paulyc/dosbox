@@ -246,7 +246,7 @@ static char const * op386map1[256] = {
   "int 03",           "int %Ib",         "into",           "iret",
 /* d */
   "%g1 %Eb,1",        "%g1 %Ev,1",       "%g1 %Eb,cl",     "%g1 %Ev,cl",
-  "aam ; %Ib",        "aad ; %Ib",       "setalc",         "%P xlat",
+  "aam ; %Ib",        "aad ; %Ib",       "setalc",         "xlat",
 #if 0
   "esc 0,%Ib",        "esc 1,%Ib",       "esc 2,%Ib",      "esc 3,%Ib",
   "esc 4,%Ib",        "esc 5,%Ib",       "esc 6,%Ib",      "esc 7,%Ib",
@@ -283,10 +283,8 @@ static char const *second[] = {
   0,                  0,                 0,                0,
   0,                  0,                 0,                0,
 /* 3 */
-  0,                  "rdtsc",           0,                0,
-  0,                  0,                 0,                0,
-  0,                  0,                 0,                0,
-  0,                  0,                 0,                0,
+  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0,
 /* 4 */
   0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0,
@@ -949,9 +947,7 @@ static void percent(char type, char subtype)
        break;
 
   case '2':                            /* old [pop cs]! now indexes */
-       c = getbyte();
-       wordop = c & 1;
-       ua_str(second[c]);              /* instructions in 386/486   */
+       ua_str(second[getbyte()]);      /* instructions in 386/486   */
        break;
 
   case 'g':                            /* modrm group `subtype' (0--7) */

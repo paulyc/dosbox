@@ -16,10 +16,10 @@
  *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* $Id: risc_armv4le-o3.h,v 1.6 2009-06-27 12:51:10 c2woody Exp $ */
+/* $Id: risc_armv4le-s3.h,v 1.6 2009-06-27 12:51:10 c2woody Exp $ */
 
 
-/* ARMv4 (little endian) backend by M-HT (size-tweaked arm version) */
+/* ARMv4 (little endian) backend by M-HT (speed-tweaked arm version) */
 
 
 // temporary registers
@@ -159,128 +159,27 @@ static void gen_mov_regs(HostReg reg_dst,HostReg reg_src) {
 	cache_addd( MOV_REG_LSL_IMM(reg_dst, reg_src, 0) );      // mov reg_dst, reg_src
 }
 
-// helper function
-static Bits get_imm_gen_len(Bit32u imm) {
-	Bits ret;
+// move a 32bit constant value into dest_reg
+static void gen_mov_dword_to_reg_imm(HostReg dest_reg,Bit32u imm) {
+	Bits first, scale;
 	if (imm == 0) {
-		return 1;
+		cache_addd( MOV_IMM(dest_reg, 0, 0) );      // mov dest_reg, #0
 	} else {
-		ret = 0;
+		scale = 0;
+		first = 1;
 		while (imm) {
 			while ((imm & 3) == 0) {
 				imm>>=2;
+				scale+=2;
 			}
-			ret++;
-			imm>>=8;
-		}
-		return ret;
-	}
-}
-
-// helper function
-static Bits get_method_imm_gen_len(Bit32u imm, Bits preffer00, Bits *num) {
-	Bits num00, num15, numadd, numsub, numret, ret;
-	num00 = get_imm_gen_len(imm);
-	num15 = get_imm_gen_len(~imm);
-	numadd = get_imm_gen_len(imm - ((Bit32u)cache.pos+8));
-	numsub = get_imm_gen_len(((Bit32u)cache.pos+8) - imm);
-	if (numsub < numadd && numsub < num00 && numsub < num15) {
-		ret = 0;
-		numret = numsub;
-	} else if (numadd < num00 && numadd < num15) {
-		ret = 1;
-		numret = numadd;
-	} else if (num00 < num15 || (num00 == num15 && preffer00)) {
-		ret = 2;
-		numret = num00;
-	} else {
-		ret = 3;
-		numret = num15;
-	}
-	if (num != NULL) *num = numret;
-	return ret;
-}
-
-// move a 32bit constant value into dest_reg
-static void gen_mov_dword_to_reg_imm(HostReg dest_reg,Bit32u imm) {
-	Bits first, method, scale;
-	Bit32u imm2, dist;
-	if (imm == 0) {
-		cache_addd( MOV_IMM(dest_reg, 0, 0) );      // mov dest_reg, #0
-	} else if (imm == 0xffffffff) {
-		cache_addd( MVN_IMM(dest_reg, 0, 0) );      // mvn dest_reg, #0
-	} else {
-		method = get_method_imm_gen_len(imm, 1, NULL);
-
-		scale = 0;
-		first = 1;
-		if (method == 0) {
-			dist = ((Bit32u)cache.pos+8) - imm;
-			while (dist) {
-				while ((dist & 3) == 0) {
-					dist>>=2;
-					scale+=2;
-				}
-				if (first) {
-					cache_addd( SUB_IMM(dest_reg, HOST_pc, dist & 0xff, ROTATE_SCALE(scale)) );      // sub dest_reg, pc, #((dist & 0xff) << scale)
-					first = 0;
-				} else {
-					cache_addd( SUB_IMM(dest_reg, dest_reg, dist & 0xff, ROTATE_SCALE(scale)) );      // sub dest_reg, dest_reg, #((dist & 0xff) << scale)
-				}
-				dist>>=8;
-				scale+=8;
-			}
-		} else if (method == 1) {
-			dist = imm - ((Bit32u)cache.pos+8);
-			if (dist == 0) {
-				cache_addd( MOV_REG_LSL_IMM(dest_reg, HOST_pc, 0) );      // mov dest_reg, pc
+			if (first) {
+				cache_addd( MOV_IMM(dest_reg, imm & 0xff, ROTATE_SCALE(scale)) );      // mov dest_reg, #((imm & 0xff) << scale)
+				first = 0;
 			} else {
-				while (dist) {
-					while ((dist & 3) == 0) {
-						dist>>=2;
-						scale+=2;
-					}
-					if (first) {
-						cache_addd( ADD_IMM(dest_reg, HOST_pc, dist & 0xff, ROTATE_SCALE(scale)) );      // add dest_reg, pc, #((dist & 0xff) << scale)
-						first = 0;
-					} else {
-						cache_addd( ADD_IMM(dest_reg, dest_reg, dist & 0xff, ROTATE_SCALE(scale)) );      // add dest_reg, dest_reg, #((dist & 0xff) << scale)
-					}
-					dist>>=8;
-					scale+=8;
-				}
+				cache_addd( ORR_IMM(dest_reg, dest_reg, imm & 0xff, ROTATE_SCALE(scale)) );      // orr dest_reg, dest_reg, #((imm & 0xff) << scale)
 			}
-		} else if (method == 2) {
-			while (imm) {
-				while ((imm & 3) == 0) {
-					imm>>=2;
-					scale+=2;
-				}
-				if (first) {
-					cache_addd( MOV_IMM(dest_reg, imm & 0xff, ROTATE_SCALE(scale)) );      // mov dest_reg, #((imm & 0xff) << scale)
-					first = 0;
-				} else {
-					cache_addd( ORR_IMM(dest_reg, dest_reg, imm & 0xff, ROTATE_SCALE(scale)) );      // orr dest_reg, dest_reg, #((imm & 0xff) << scale)
-				}
-				imm>>=8;
-				scale+=8;
-			}
-		} else {
-			imm2 = ~imm;
-			while (imm2) {
-				while ((imm2 & 3) == 0) {
-					imm2>>=2;
-					scale+=2;
-				}
-				if (first) {
-					cache_addd( MVN_IMM(dest_reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // mvn dest_reg, #((imm2 & 0xff) << scale)
-					first = 0;
-				} else {
-					cache_addd( BIC_IMM(dest_reg, dest_reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // bic dest_reg, dest_reg, #((imm2 & 0xff) << scale)
-				}
-				imm2>>=8;
-				scale+=8;
-			}
+			imm>>=8;
+			scale+=8;
 		}
 	}
 }
@@ -324,30 +223,8 @@ static void gen_mov_word_to_reg(HostReg dest_reg,void* data,bool dword) {
 
 // move a 16bit constant value into dest_reg
 // the upper 16bit of the destination register may be destroyed
-static void gen_mov_word_to_reg_imm(HostReg dest_reg,Bit16u imm) {
-	Bits first, scale;
-	Bit32u imm2;
-	if (imm == 0) {
-		cache_addd( MOV_IMM(dest_reg, 0, 0) );      // mov dest_reg, #0
-	} else {
-		scale = 0;
-		first = 1;
-		imm2 = (Bit32u)imm;
-		while (imm2) {
-			while ((imm2 & 3) == 0) {
-				imm2>>=2;
-				scale+=2;
-			}
-			if (first) {
-				cache_addd( MOV_IMM(dest_reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // mov dest_reg, #((imm2 & 0xff) << scale)
-				first = 0;
-			} else {
-				cache_addd( ORR_IMM(dest_reg, dest_reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // orr dest_reg, dest_reg, #((imm2 & 0xff) << scale)
-			}
-			imm2>>=8;
-			scale+=8;
-		}
-	}
+static void INLINE gen_mov_word_to_reg_imm(HostReg dest_reg,Bit16u imm) {
+	gen_mov_dword_to_reg_imm(dest_reg, (Bit32u)imm);
 }
 
 // helper function for gen_mov_word_from_reg
@@ -458,71 +335,42 @@ static void gen_add(HostReg reg,void* op) {
 
 // add a 32bit constant value to a full register
 static void gen_add_imm(HostReg reg,Bit32u imm) {
-	Bits method1, method2, num1, num2, scale, sub;
+	Bits scale;
 	if(!imm) return;
-	if (imm == 1) {
-		cache_addd( ADD_IMM(reg, reg, 1, 0) );      // add reg, reg, #1
-	} else if (imm == 0xffffffff) {
+	if (imm == 0xffffffff) {
 		cache_addd( SUB_IMM(reg, reg, 1, 0) );      // sub reg, reg, #1
 	} else {
-		method1 = get_method_imm_gen_len(imm, 1, &num1);
-		method2 = get_method_imm_gen_len(-((Bit32s)imm), 1, &num2);
-		if (num2 < num1) {
-			method1 = method2;
-			imm = (Bit32u)(-((Bit32s)imm));
-			sub = 1;
-		} else sub = 0;
-
-		if (method1 != 2) {
-			gen_mov_dword_to_reg_imm(temp3, imm);
-			if (sub) {
-				cache_addd( SUB_REG_LSL_IMM(reg, reg, temp3, 0) );      // sub reg, reg, temp3
-			} else {
-				cache_addd( ADD_REG_LSL_IMM(reg, reg, temp3, 0) );      // add reg, reg, temp3
+		scale = 0;
+		while (imm) {
+			while ((imm & 3) == 0) {
+				imm>>=2;
+				scale+=2;
 			}
-		} else {
-			scale = 0;
-			while (imm) {
-				while ((imm & 3) == 0) {
-					imm>>=2;
-					scale+=2;
-				}
-				if (sub) {
-					cache_addd( SUB_IMM(reg, reg, imm & 0xff, ROTATE_SCALE(scale)) );      // sub reg, reg, #((imm & 0xff) << scale)
-				} else {
-					cache_addd( ADD_IMM(reg, reg, imm & 0xff, ROTATE_SCALE(scale)) );      // add reg, reg, #((imm & 0xff) << scale)
-				}
-				imm>>=8;
-				scale+=8;
-			}
+			cache_addd( ADD_IMM(reg, reg, imm & 0xff, ROTATE_SCALE(scale)) );      // add reg, reg, #((imm & 0xff) << scale)
+			imm>>=8;
+			scale+=8;
 		}
 	}
 }
 
 // and a 32bit constant value with a full register
 static void gen_and_imm(HostReg reg,Bit32u imm) {
-	Bits method, scale;
+	Bits scale;
 	Bit32u imm2;
 	imm2 = ~imm;
 	if(!imm2) return;
 	if (!imm) {
 		cache_addd( MOV_IMM(reg, 0, 0) );      // mov reg, #0
 	} else {
-		method = get_method_imm_gen_len(imm, 0, NULL);
-		if (method != 3) {
-			gen_mov_dword_to_reg_imm(temp3, imm);
-			cache_addd( AND_REG_LSL_IMM(reg, reg, temp3, 0) );      // and reg, reg, temp3
-		} else {
-			scale = 0;
-			while (imm2) {
-				while ((imm2 & 3) == 0) {
-					imm2>>=2;
-					scale+=2;
-				}
-				cache_addd( BIC_IMM(reg, reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // bic reg, reg, #((imm2 & 0xff) << scale)
-				imm2>>=8;
-				scale+=8;
+		scale = 0;
+		while (imm2) {
+			while ((imm2 & 3) == 0) {
+				imm2>>=2;
+				scale+=2;
 			}
+			cache_addd( BIC_IMM(reg, reg, imm2 & 0xff, ROTATE_SCALE(scale)) );      // bic reg, reg, #((imm2 & 0xff) << scale)
+			imm2>>=8;
+			scale+=8;
 		}
 	}
 }
@@ -666,19 +514,11 @@ static void INLINE gen_load_param_mem(Bitu mem,Bitu param) {
 
 // jump to an address pointed at by ptr, offset is in imm
 static void gen_jmp_ptr(void * ptr,Bits imm=0) {
-	Bits num1, num2, scale, sub;
+	Bits scale;
 	Bitu imm2;
 	gen_mov_word_to_reg(temp3, ptr, 1);
 
 	if (imm) {
-		num1 = get_imm_gen_len(imm);
-		num2 = get_imm_gen_len(-imm);
-
-		if (num2 < num1) {
-			imm = -imm;
-			sub = 1;
-		} else sub = 0;
-
 		scale = 0;
 		imm2 = (Bitu)imm;
 		while (imm2) {
@@ -686,11 +526,7 @@ static void gen_jmp_ptr(void * ptr,Bits imm=0) {
 				imm2>>=2;
 				scale+=2;
 			}
-			if (sub) {
-				cache_addd( SUB_IMM(temp3, temp3, imm2 & 0xff, ROTATE_SCALE(scale)) );      // sub temp3, temp3, #((imm2 & 0xff) << scale)
-			} else {
-				cache_addd( ADD_IMM(temp3, temp3, imm2 & 0xff, ROTATE_SCALE(scale)) );      // add temp3, temp3, #((imm2 & 0xff) << scale)
-			}
+			cache_addd( ADD_IMM(temp3, temp3, imm2 & 0xff, ROTATE_SCALE(scale)) );      // add temp3, temp3, #((imm2 & 0xff) << scale)
 			imm2>>=8;
 			scale+=8;
 		}

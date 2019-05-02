@@ -13,11 +13,6 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#if C_DEBUG
-#include <stdio.h>
-#include <stdarg.h>
-#endif
-
 #ifndef M_PI
 #define M_PI           3.14159265358979323846
 #endif
@@ -99,15 +94,7 @@ public:
 		return clockRate;
 	}
 
-	void logerror(const char* format, ...) {
-#if C_DEBUG
-		char buf[512*2];
-		va_list msg;
-		va_start(msg,format);
-		vsprintf(buf,format,msg);
-		va_end(msg);
-		LOG(LOG_MISC,LOG_NORMAL)("%s",buf);
-#endif
+	void logerror(const char* msg, ...) {
 	}
 
 	static int tag() {

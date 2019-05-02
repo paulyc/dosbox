@@ -437,9 +437,6 @@
 						RelativePath="..\src\dos\drive_local.cpp">
 					</File>
 					<File
-						RelativePath="..\src\dos\drive_overlay.cpp">
-					</File>
-					<File
 						RelativePath="..\src\dos\drive_virtual.cpp">
 					</File>
 					<File
@@ -482,9 +479,6 @@
 				</File>
 				<File
 					RelativePath="..\src\hardware\mixer.cpp">
-				</File>
-				<File
-					RelativePath="..\src\hardware\pci_bus.cpp">
 				</File>
 				<File
 					RelativePath="..\src\hardware\pic.cpp">
@@ -568,43 +562,6 @@
 					<File
 						RelativePath="..\src\hardware\tandy_sound.cpp">
 					</File>
-					<Filter
-						Name="mame"
-						Filter="">
-						<File
-							RelativePath="..\src\hardware\mame\emu.h">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\fmopl.cpp">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\fmopl.h">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\saa1099.cpp">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\saa1099.h">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\sn76496.cpp">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\sn76496.h">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\ymdeltat.cpp">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\ymdeltat.h">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\ymf262.cpp">
-						</File>
-						<File
-							RelativePath="..\src\hardware\mame\ymf262.h">
-						</File>
-					</Filter>
 				</Filter>
 				<Filter
 					Name="serialport"
@@ -863,19 +820,16 @@
 				RelativePath="..\include\mem.h">
 			</File>
 			<File
-				RelativePath="..\include\midi.h">
+				RelativePath="..\include\mixer.h">
 			</File>
 			<File
-				RelativePath="..\include\mixer.h">
+				RelativePath="..\include\modules.h">
 			</File>
 			<File
 				RelativePath="..\include\mouse.h">
 			</File>
 			<File
 				RelativePath="..\include\paging.h">
-			</File>
-			<File
-				RelativePath="..\include\pci_bus.h">
 			</File>
 			<File
 				RelativePath="..\include\pic.h">
