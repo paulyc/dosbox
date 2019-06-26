@@ -1,21 +1,3 @@
-/*
- *  Copyright (C) 2002-2019  The DOSBox Team
- *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
- *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
-
 #ifndef DOSBOX_LOGGING_H
 #define DOSBOX_LOGGING_H
 enum LOG_TYPES {
@@ -27,7 +9,6 @@ enum LOG_TYPES {
 	LOG_PIT,LOG_KEYBOARD,LOG_PIC,
 	LOG_MOUSE,LOG_BIOS,LOG_GUI,LOG_MISC,
 	LOG_IO,
-	LOG_PCI,
 	LOG_MAX
 };
 
@@ -66,10 +47,6 @@ struct LOG
 	void operator()(char const* , double , double , double )					{ }
 	void operator()(char const* , double , double , double , double )					{ }
 	void operator()(char const* , double , double , double , double , double )					{ }
-	void operator()(char const* , double , double , double , double , double , double )					{ }
-	void operator()(char const* , double , double , double , double , double , double , double)					{ }
-
-
 
 	void operator()(char const* , char const* )									{ }
 	void operator()(char const* , char const* , double )							{ }
@@ -78,7 +55,7 @@ struct LOG
 	void operator()(char const* , double , double, char const* )						{ }
 	void operator()(char const* , char const*, char const*)				{ }
 
-	void operator()(char const* , double , double , double , char const* )					{ }
+
 }; //add missing operators to here
 	//try to avoid anything smaller than bit32...
 void GFX_ShowMsg(char const* format,...) GCC_ATTRIBUTE(__format__(__printf__, 1, 2));

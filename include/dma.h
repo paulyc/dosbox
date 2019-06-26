@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2010  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,11 +11,12 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
- *  with this program; if not, write to the Free Software Foundation, Inc.,
- *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* $Id: dma.h,v 1.20 2009-07-24 09:56:14 c2woody Exp $ */
 
 #ifndef DOSBOX_DMA_H
 #define DOSBOX_DMA_H
@@ -86,8 +87,8 @@ private:
 	bool flipflop;
 	DmaChannel *DmaChannels[4];
 public:
-	IO_ReadHandleObject DMA_ReadHandler[0x12];
-	IO_WriteHandleObject DMA_WriteHandler[0x12];
+	IO_ReadHandleObject DMA_ReadHandler[0x11];
+	IO_WriteHandleObject DMA_WriteHandler[0x11];
 	DmaController(Bit8u num) {
 		flipflop = false;
 		ctrlnum = num;		/* first or second DMA controller */
@@ -113,6 +114,6 @@ DmaChannel * GetDMAChannel(Bit8u chan);
 void CloseSecondDMAController(void);
 bool SecondDMAControllerAvailable(void);
 
-void DMA_SetWrapping(Bitu wrap);
+static Bit32u dma_wrapping = 0xffff;
 
 #endif
