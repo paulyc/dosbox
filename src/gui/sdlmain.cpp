@@ -239,7 +239,7 @@ SDL_Surface* SDL_SetVideoMode_Wrap(int width,int height,int bpp,Bit32u flags){
 		if ((flags & SDL_OPENGL)==0)
 			SDL_FillRect(sdl.surface,NULL,SDL_MapRGB(sdl.surface->format,0,0,0));
 		else {
-			glClearColor (0.0, 0.0, 0.0, 1.0);
+			glClearColor (0.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT);
 			SDL_GL_SwapBuffers();
 		}
@@ -286,19 +286,19 @@ extern bool CPU_CycleAutoAdjust;
 bool startup_state_numlock=false;
 bool startup_state_capslock=false;
 
-void GFX_SetTitle(Bit32s cycles,Bits frameskip,bool paused){
-	char title[200]={0};
-	static Bit32s internal_cycles=0;
-	static Bit32s internal_frameskip=0;
-	if(cycles != -1) internal_cycles = cycles;
-	if(frameskip != -1) internal_frameskip = frameskip;
+void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
+	char title[200] = { 0 };
+	static Bit32s internal_cycles = 0;
+	static int internal_frameskip = 0;
+	if (cycles != -1) internal_cycles = cycles;
+	if (frameskip != -1) internal_frameskip = frameskip;
 	if(CPU_CycleAutoAdjust) {
 		sprintf(title,"DOSBox %s, CPU speed: max %3d%% cycles, Frameskip %2d, Program: %8s",VERSION,internal_cycles,internal_frameskip,RunningProgram);
 	} else {
 		sprintf(title,"DOSBox %s, CPU speed: %8d cycles, Frameskip %2d, Program: %8s",VERSION,internal_cycles,internal_frameskip,RunningProgram);
 	}
 
-	if(paused) strcat(title," PAUSED");
+	if (paused) strcat(title," PAUSED");
 	SDL_WM_SetCaption(title,VERSION);
 }
 
@@ -733,7 +733,7 @@ dosurface:
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texsize, texsize, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, (const GLvoid*)emptytex);
 		delete [] emptytex;
 
-		glClearColor (0.0, 0.0, 0.0, 1.0);
+		glClearColor (0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		SDL_GL_SwapBuffers();
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -752,16 +752,16 @@ dosurface:
 		sdl.opengl.displaylist = glGenLists(1);
 		glNewList(sdl.opengl.displaylist, GL_COMPILE);
 		glBindTexture(GL_TEXTURE_2D, sdl.opengl.texture);
-		glBegin(GL_QUADS);
-		// lower left
-		glTexCoord2f(0,tex_height); glVertex2f(-1.0f,-1.0f);
-		// lower right
-		glTexCoord2f(tex_width,tex_height); glVertex2f(1.0f, -1.0f);
-		// upper right
-		glTexCoord2f(tex_width,0); glVertex2f(1.0f, 1.0f);
+
+		glBegin(GL_TRIANGLES);
 		// upper left
 		glTexCoord2f(0,0); glVertex2f(-1.0f, 1.0f);
+		// lower left
+		glTexCoord2f(0,tex_height*2); glVertex2f(-1.0f,-3.0f);
+		// upper right
+		glTexCoord2f(tex_width*2,0); glVertex2f(3.0f, 1.0f);
 		glEnd();
+
 		glEndList();
 		sdl.desktop.type=SCREEN_OPENGL;
 		retFlags = GFX_CAN_32 | GFX_SCALING;
@@ -1006,7 +1006,7 @@ void GFX_EndUpdate( const Bit16u *changedLines ) {
 	case SCREEN_OPENGL:
 		// Clear drawing area. Some drivers (on Linux) have more than 2 buffers and the screen might
 		// be dirty because of other programs.
-		glClearColor (0.0, 0.0, 0.0, 1.0);
+		glClearColor (0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		if (sdl.opengl.pixel_buffer_object) {
 			glUnmapBufferARB(GL_PIXEL_UNPACK_BUFFER_EXT);
@@ -1716,12 +1716,14 @@ static BOOL WINAPI ConsoleEventHandler(DWORD event) {
 static bool no_stdout = false;
 void GFX_ShowMsg(char const* format,...) {
 	char buf[512];
+
 	va_list msg;
 	va_start(msg,format);
-	vsprintf(buf,format,msg);
-        strcat(buf,"\n");
+	vsnprintf(buf,sizeof(buf),format,msg);
 	va_end(msg);
-	if(!no_stdout) printf("%s",buf); //Else buf is parsed again.
+
+	buf[sizeof(buf) - 1] = '\0';
+	if (!no_stdout) puts(buf); //Else buf is parsed again. (puts adds end of line)
 }
 
 
@@ -1866,11 +1868,11 @@ extern void DEBUG_ShutDown(Section * /*sec*/);
 #endif
 
 void restart_program(std::vector<std::string> & parameters) {
-	char** newargs = new char* [parameters.size()+1];
+	char** newargs = new char* [parameters.size() + 1];
 	// parameter 0 is the executable path
 	// contents of the vector follow
 	// last one is NULL
-	for(Bitu i = 0; i < parameters.size(); i++) newargs[i]=(char*)parameters[i].c_str();
+	for(Bitu i = 0; i < parameters.size(); i++) newargs[i] = (char*)parameters[i].c_str();
 	newargs[parameters.size()] = NULL;
 	SDL_CloseAudio();
 	SDL_Delay(50);
@@ -1892,7 +1894,7 @@ void restart_program(std::vector<std::string> & parameters) {
 #endif
 		E_Exit("Restarting failed");
 	}
-	free(newargs);
+	delete [] newargs;
 }
 void Restart(bool pressed) { // mapper handler
 	restart_program(control->startup_params);
